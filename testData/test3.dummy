@@ -1,0 +1,18 @@
+fun test() {
+    var x;
+    x = bar(baz());
+    var y;
+    if (false) {
+        y = 10;
+    } else {
+        x = 11;
+    }
+    bar(y);
+}
+
+fun bar(x) {
+    var y = true;
+    z = 1;
+    var c = x;
+}
+fun baz() {}

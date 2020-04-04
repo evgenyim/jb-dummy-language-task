@@ -2,7 +2,7 @@ package org.jetbrains.dummy.lang
 
 import org.jetbrains.dummy.lang.tree.*
 
-class VariableInitializationChecker(private val reporter: DiagnosticReporter) : AbstractChecker() {
+class VariableDefinitionChecker(private val reporter: DiagnosticReporter) : AbstractChecker() {
     override fun inspect(file: File) {
         for (func in file.functions) {
             inspectFunction(func)
@@ -19,18 +19,17 @@ class VariableInitializationChecker(private val reporter: DiagnosticReporter) : 
     private fun inspectBlock(initialized: Map<String, Boolean>, block: Block): Map<String, Boolean> {
         var innerMap: MutableMap<String, Boolean> = initialized.toMutableMap()
         for (statement in block.statements) {
+            if (statement is VariableDeclaration) {
+                innerMap[statement.name] = false
+            }
             if (statement is Assignment) {
                 if (statement.rhs is FunctionCall) {
                     checkFunctionCall(innerMap, statement.rhs)
                 }
-                if (innerMap.containsKey(statement.variable)) innerMap[statement.variable] = true
-                continue
-            }
-            if (statement is VariableDeclaration) {
-                if (statement.initializer == null) {
-                    innerMap[statement.name] = false
-                } else if (isInitialized(innerMap, statement.initializer)) {
-                    innerMap[statement.name] = true
+                if (innerMap.containsKey(statement.variable)) {
+                    innerMap[statement.variable] = true
+                } else {
+                    reportAssignmentBeforeDefinition(statement)
                 }
                 continue
             }
@@ -40,7 +39,7 @@ class VariableInitializationChecker(private val reporter: DiagnosticReporter) : 
             }
             if (statement is IfStatement) {
                 if (statement.condition is VariableAccess) {
-                    isInitialized(innerMap, statement.condition)
+                    isDefined(innerMap, statement.condition)
                 } else if (statement.condition is FunctionCall) {
                     checkFunctionCall(innerMap, statement.condition)
                 }
@@ -59,9 +58,8 @@ class VariableInitializationChecker(private val reporter: DiagnosticReporter) : 
                 }
                 continue
             }
-            // If return something, then we don't need to check anymore
             if (statement is ReturnStatement && statement.result != null) {
-                isInitialized(innerMap, statement.result)
+                isDefined(innerMap, statement.result)
                 break
             }
         }
@@ -89,28 +87,32 @@ class VariableInitializationChecker(private val reporter: DiagnosticReporter) : 
         return retMap
     }
 
-    private fun isInitialized(initialized: Map<String, Boolean>, expr: Expression): Boolean {
+    private fun isDefined(defined: Map<String, Boolean>, expr: Expression): Boolean {
         if (expr is VariableAccess) {
-            return if (initialized.containsKey(expr.name) && initialized[expr.name] == true) {
-                true
+            if (defined.containsKey(expr.name)) {
+                return true
             } else {
-                reportAccessBeforeInitialization(expr)
-                false
+                reportAccessBeforeDefinition(expr)
+                return false
             }
         } else if (expr is FunctionCall) {
-            checkFunctionCall(initialized, expr)
+            checkFunctionCall(defined, expr)
         }
         return true
     }
 
     private fun checkFunctionCall(initialized: Map<String, Boolean>, func: FunctionCall) {
         for (expr in func.arguments) {
-            isInitialized(initialized, expr)
+            isDefined(initialized, expr)
         }
     }
 
     // Use this method for reporting errors
-    private fun reportAccessBeforeInitialization(access: VariableAccess) {
-        reporter.report(access, "Variable '${access.name}' is accessed before initialization")
+    private fun reportAccessBeforeDefinition(access: VariableAccess) {
+        reporter.report(access, "Variable '${access.name}' is accessed before definition")
+    }
+
+    private fun reportAssignmentBeforeDefinition(assignment: Assignment) {
+        reporter.report(assignment, "Variable '${assignment.variable}' is accessed before definition")
     }
 }

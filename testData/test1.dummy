@@ -1,0 +1,9 @@
+fun test() {
+    if(true) {
+        var x = true;
+    }
+    bar(x);
+    x = 1;
+}
+
+fun bar(x) {}

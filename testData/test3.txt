@@ -1,0 +1,4 @@
+ERROR: line 10: Variable 'y' is accessed before initialization
+ERROR: line 15: Variable 'z' is accessed before definition
+ERROR: line 3: Function 'bar' doesn't return value
+ERROR: line 3: Function 'baz' doesn't return value
